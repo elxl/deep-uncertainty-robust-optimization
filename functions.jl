@@ -194,7 +194,8 @@ function get_current_location(matching_time, veh, demand_id_dict)
     if matching_time - Second(matching_window) < pax.assign_time <= matching_time
         return veh.current_location
     else
-        vehicle_travel_time = second(matching_time) - second(pax.request_time) - pax.wait_time
+        vehicle_travel_time = 3600*hour(matching_time) + 60*minute(matching_time) + second(matching_time) - 
+                            (3600*hour(pax.request_time) + 60*minute(pax.request_time) + second(pax.request_time)) - pax.wait_time
         veh_start_loc = pax.origin
         veh_end_loc = pax.destination
         trip_path = []

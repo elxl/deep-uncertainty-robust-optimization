@@ -17,11 +17,16 @@ include("functions.jl")
 fleet_size = 2000
 
 #matching_engine_list = ["historical", "true_demand", "graph_lstm", "single_station_lstm", "all_station_lstm", "SAA", "KNN5", "KNN10", "ORT"]
+matching_engine = "true_demand"
 output_path = "output/"
-ρ_list = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-Γ_list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+ρ_list = [0, 0.5, 1, 1.5, 2, 2.5, 3]
+Γ_list = [0, 5, 10]
 
 for ρ in ρ_list, Γ in Γ_list
+    
+    if isfile(output_path*string(ρ)*"_"*string(Γ)*"_"*string(start_time[1])*"_"*string(end_time[1])*"_results.json")
+        continue
+    end
 
     # Initialize demand and vehicle objects
     demand_list, demand_id_dict = initialize_demand(demand_data, zone_to_road_node_dict, zone_index_id_dict)
@@ -66,9 +71,18 @@ for ρ in ρ_list, Γ in Γ_list
         b_sub = b[:,:,time_index:end_time_index] # if traveling time is bigger than maximum waiting time
         d_sub = d[:,:,time_index:end_time_index] # zone centroids distance 
 
-        μ = graph_lstm_mean[:, time_index:end_time_index] # predicted mean
-        σ = graph_lstm_var[:, time_index:end_time_index] # predicted standard deviation
-        rebalancing_decision = robust_model_function(μ, σ, ρ, Γ, V_init, O_init, P_matrix, Q_matrix, d_sub, a_sub, b_sub, β, γ)
+        if matching_engine == "graph_lstm"
+            μ = graph_lstm_mean[:, time_index:end_time_index] # predicted mean
+            σ = graph_lstm_var[:, time_index:end_time_index] # predicted standard deviation
+            rebalancing_decision = robust_model_function(μ, σ, ρ, Γ, V_init, O_init, P_matrix, Q_matrix, d_sub, a_sub, b_sub, β, γ)
+        elseif matching_engine == "historical"
+            μ = demand_mean[:, time_index:end_time_index]
+            σ = demand_std[:, time_index:end_time_index]
+            rebalancing_decision = robust_model_function(μ, σ, ρ, Γ, V_init, O_init, P_matrix, Q_matrix, d_sub, a_sub, b_sub, β, γ)
+        elseif matching_engine == "true_demand"
+            r = true_demand[:, time_index:end_time_index]
+            rebalancing_decision = optimization(r, V_init, O_init, P_matrix, Q_matrix, n, K_sub, a_sub, b_sub, d_sub, β, γ)
+        end
 
         rebalancing_decision = (Int.(floor.(rebalancing_decision[:,:,1])))
 
@@ -159,7 +173,8 @@ for ρ in ρ_list, Γ in Γ_list
             for ((veh_id, pax_id), pickup_dist) in matching_list
                 pax = demand_id_dict[pax_id]
                 pickup_time = pickup_dist / average_speed * 3600
-                pax.wait_time = pickup_time + matching_window + second(matching_simulation_time) - second(pax.request_time)
+                pax.wait_time = pickup_time + matching_window + 3600*hour(matching_simulation_time) + 60*minute(matching_simulation_time) +
+                                second(matching_simulation_time) - (3600*hour(pax.request_time) + 60*minute(pax.request_time) + second(pax.request_time))
                 pax.travel_time = road_distance_matrix[pax.origin+1, pax.destination+1] / average_speed * 3600
                 pax.assign_time = matching_simulation_time + Second(matching_window)
                 pax.arrival_time = pax.assign_time + Second(floor(pickup_time)) + Second(floor(pax.travel_time))
@@ -241,9 +256,14 @@ for ρ in ρ_list, Γ in Γ_list
 
     println(pax_leave_number / total_pax_number)
 
-
-    open(output_path*string(ρ)*"_"*string(Γ)*"_"*string(start_time[1])*"_"*string(end_time[1])*"_results.json","w") do f
-        JSON.print(f, output)
+    if matching_engine=="true_demand"
+        open(output_path*matching_engine*"_"*string(start_time[1])*"_"*string(end_time[1])*"_results.json","w") do f
+            JSON.print(f, output)
+        end
+        break
+    else
+        open(output_path*string(ρ)*"_"*string(Γ)*"_"*string(start_time[1])*"_"*string(end_time[1])*"_results.json","w") do f
+            JSON.print(f, output)
+        end
     end
-
 end
