@@ -17,9 +17,9 @@ include("functions.jl")
 fleet_size = 2000
 
 #matching_engine_list = ["historical", "true_demand", "graph_lstm", "single_station_lstm", "all_station_lstm", "SAA", "KNN5", "KNN10", "ORT"]
-matching_engine = "true_demand"
-output_path = "output/"
-ρ_list = [0, 0.5, 1, 1.5, 2, 2.5, 3]
+matching_engine = "historical"
+output_path = "output/historical_poisson/"
+ρ_list = [3]
 Γ_list = [0, 5, 10]
 
 for ρ in ρ_list, Γ in Γ_list
@@ -75,6 +75,11 @@ for ρ in ρ_list, Γ in Γ_list
             μ = graph_lstm_mean[:, time_index:end_time_index] # predicted mean
             σ = graph_lstm_var[:, time_index:end_time_index] # predicted standard deviation
             rebalancing_decision = robust_model_function(μ, σ, ρ, Γ, V_init, O_init, P_matrix, Q_matrix, d_sub, a_sub, b_sub, β, γ)
+        elseif matching_engine == "graph_lstm_interval"
+            μ = graph_lstm_mean[:, time_index:end_time_index] # predicted mean
+            lb = graph_lstm_lb[:, time_index:end_time_index]
+            ub = graph_lstm_ub[:, time_index:end_time_index]
+            rebalancing_decision = robust_model_function_interval(μ, lb, ub, Γ, V_init, O_init, P_matrix, Q_matrix, d_sub, a_sub, b_sub, β, γ)
         elseif matching_engine == "historical"
             μ = demand_mean[:, time_index:end_time_index]
             σ = demand_std[:, time_index:end_time_index]
