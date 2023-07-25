@@ -17,8 +17,8 @@ include("functions.jl")
 fleet_size = 2000
 
 #matching_engine_list = ["historical", "true_demand", "graph_lstm", "single_station_lstm", "all_station_lstm", "SAA", "KNN5", "KNN10", "ORT"]
-matching_engine = "historical"
-output_path = "output/historical_poisson/"
+matching_engine = "graph_lstm_interval"
+output_path = "output/graph_lstm_poisson_0627_95/"
 ρ_list = [3]
 Γ_list = [0, 5, 10]
 
@@ -84,6 +84,11 @@ for ρ in ρ_list, Γ in Γ_list
             μ = demand_mean[:, time_index:end_time_index]
             σ = demand_std[:, time_index:end_time_index]
             rebalancing_decision = robust_model_function(μ, σ, ρ, Γ, V_init, O_init, P_matrix, Q_matrix, d_sub, a_sub, b_sub, β, γ)
+        elseif matching_engine == "historical_interval"
+            μ = demand_mean[:, time_index:end_time_index] # predicted mean
+            lb = demand_lb[:, time_index:end_time_index]
+            ub = demand_ub[:, time_index:end_time_index]
+            rebalancing_decision = robust_model_function_interval(μ, lb, ub, Γ, V_init, O_init, P_matrix, Q_matrix, d_sub, a_sub, b_sub, β, γ)            
         elseif matching_engine == "true_demand"
             r = true_demand[:, time_index:end_time_index]
             rebalancing_decision = optimization(r, V_init, O_init, P_matrix, Q_matrix, n, K_sub, a_sub, b_sub, d_sub, β, γ)

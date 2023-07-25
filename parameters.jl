@@ -21,8 +21,8 @@ end_timestap = Time(DateTime(2021,8,13,end_time[1],0,0))
 # Demand data
 data = CSV.read("data/NYC/processed_data/normalized_data.csv", DataFrame)
 data = data[(data.bin .>= start_bin) .& (data.bin .<= end_bin), :]
-prev_data = data[(data.month .!= 6) .| (data.day .!= 28), :]
-June_28_data = data[(data.month .== 6) .& (data.day .== 28), :]
+prev_data = data[(data.month .!= 6) .| (data.day .< 27), :]
+June_27_data = data[(data.month .== 6) .& (data.day .== 27), :]
 
 gd = groupby(prev_data, [:day, :month])
 n = size(unique(data.zone))[1]
@@ -62,13 +62,15 @@ end
 # Demand information used for solving optimizaiton problems
 # demand_mean = mean(data_points, dims=3)[:,:]
 # demand_std = std(data_points, dims=3)[:,:]
-demand_mean = npzread("historical/0628_poisson_mean.npy")
-demand_std = npzread("historical/0628_poisson_std.npy")
-true_demand = unstack(June_28_data[:, [:zone, :bin, :demand]], :bin, :demand)[:, 2:end]
-hist_avg_demand = unstack(June_28_data[:, [:zone, :bin, :historical_average]], :bin, :historical_average)[:, 2:end]
+demand_mean = npzread("historical/0627_poisson_mean.npy")
+demand_std = npzread("historical/0627_poisson_std.npy")
+demand_lb = npzread("historical/0627_poisson_95_lb.npy")
+demand_ub = npzread("historical/0627_poisson_95_ub.npy")
+true_demand = unstack(June_27_data[:, [:zone, :bin, :demand]], :bin, :demand)[:, 2:end]
+hist_avg_demand = unstack(June_27_data[:, [:zone, :bin, :historical_average]], :bin, :historical_average)[:, 2:end]
 
 # Actual demand data used for simulation
-demand_data = CSV.read("data/NYC/demand/fhv_records_06282019.csv", DataFrame)
+demand_data = CSV.read("data/NYC/demand/fhv_records_06272019.csv", DataFrame)
 
 # Problem Parameters
 β = 1
@@ -99,10 +101,10 @@ P = repeat(convert(Matrix, P), inner = [1,1,K])
 Q = repeat(convert(Matrix, Q), inner = [1,1,K])
 
 # Demand mean and variance from neural network
-graph_lstm_mean = CSV.read("graph_lstm/0628_poisson_mean.csv", DataFrame)
+graph_lstm_mean = CSV.read("graph_lstm/0627_poisson_mean.csv", DataFrame)
 graph_lstm_mean = unstack(graph_lstm_mean[:, [:zone, :bin, :demand]], :bin, :demand)
 graph_lstm_mean = graph_lstm_mean[:,start_bin+2:end_bin+2]
-graph_lstm_var = CSV.read("graph_lstm/0628_poisson_std.csv", DataFrame)
+graph_lstm_var = CSV.read("graph_lstm/0627_poisson_std.csv", DataFrame)
 graph_lstm_var = unstack(graph_lstm_var[:, [:zone, :bin, :demand]], :bin, :demand)
 graph_lstm_var = graph_lstm_var[:,start_bin+2:end_bin+2]
 
@@ -111,6 +113,6 @@ graph_lstm_lb = CSV.read("graph_lstm/0627_poisson_95_lb.csv", DataFrame)
 graph_lstm_lb = unstack(graph_lstm_lb[:, [:zone, :bin, :demand]], :bin, :demand)
 graph_lstm_lb = graph_lstm_lb[:,start_bin+2:end_bin+2]
 graph_lstm_ub = CSV.read("graph_lstm/0627_poisson_95_ub.csv", DataFrame)
-graph_lstm_ub = unstack(graph_lstm_var[:, [:zone, :bin, :demand]], :bin, :demand)
-graph_lstm_ub = graph_lstm_var[:,start_bin+2:end_bin+2]
+graph_lstm_ub = unstack(graph_lstm_ub[:, [:zone, :bin, :demand]], :bin, :demand)
+graph_lstm_ub = graph_lstm_ub[:,start_bin+2:end_bin+2]
 ;
