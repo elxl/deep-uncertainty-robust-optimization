@@ -51,12 +51,12 @@ function initialize_vehicle(fleet_size, n, zone_to_road_node_dict)
     vehicle_list = []
     vehicle_id_dict = Dict()
     vehicle_ind = 1
-    init_avail_time = Time(DateTime(2021,8,13,start_time[1],0,0))
+    init_avail_time = Time(DateTime(2019,6,27,start_time[1],0,0))
     Random.seed!(2022)
 
     zone_vehicle_number = Int(floor(fleet_size / n)) # number of vehicles in each zone
-    for i in 1:n
-        road_node_list = zone_to_road_node_dict[i-1]
+    for i in keys(zone_to_road_node_dict)
+        road_node_list = zone_to_road_node_dict[i]
         vehicle_loc_list = sample(road_node_list, zone_vehicle_number, replace=true) # sample number of vehicles locations in zone
         for loc in vehicle_loc_list
             veh = Vehicle(vehicle_ind, loc, init_avail_time, loc, false, [], [], [], [], [])
@@ -203,7 +203,9 @@ function get_current_location(matching_time, veh, demand_id_dict)
         # Path of vehicle
         while true
             pred = Int(predecessor[veh_start_loc+1,temp_node+1])
-            pushfirst!(trip_path, pred)
+            if pred in road_node
+                pushfirst!(trip_path, pred)
+            end
             if pred == veh_start_loc
                 break
             end

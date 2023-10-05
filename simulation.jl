@@ -9,18 +9,19 @@ using NPZ, Statistics, LinearAlgebra
 using ProgressBars, Random
 using JuMPeR, Distributions, Printf, StatsBase, BSON
 using Dates, JSON
+using Base.Iterators
 
 include("structures.jl")
 include("parameters.jl")
 include("functions.jl")
 
-fleet_size = 2000
+fleet_size = 1000
 
 #matching_engine_list = ["historical", "true_demand", "graph_lstm", "single_station_lstm", "all_station_lstm", "SAA", "KNN5", "KNN10", "ORT"]
-matching_engine = "historical_interval"
-output_path = "output/historical_normal_0627/"
+matching_engine = "graph_lstm_interval"
+output_path = "output/graph_lstm_poisson_0627_reduced/"
 ρ_list = [3]
-Γ_list = [0]
+Γ_list = [0,1,2,3,4,5,6,7,8,9,10]
 
 for ρ in ρ_list, Γ in Γ_list
     
@@ -51,15 +52,15 @@ for ρ in ρ_list, Γ in Γ_list
         # Find initial occupied & vacant vehicle distributions
         V_init = zeros(n) # vacant vehicles
         O_init = zeros(n) # occupied vehicles
-        zone_vacant_veh_dict = Dict(i => [] for i in 1:n)
+        zone_vacant_veh_dict = Dict(i => [] for i in zones_index)
         for veh in vehicle_list
             veh_loc = veh.current_location
             vehicle_zone = road_node_to_zone_dict[veh_loc]
             if veh.occupied
-                global O_init[vehicle_zone+1] += 1 # zone index from 1 to 63
+                global O_init[findfirst(x -> x == vehicle_zone, zones_index)] += 1 # zone index from 1 to 63
             else
-                global V_init[vehicle_zone+1] += 1
-                push!(zone_vacant_veh_dict[vehicle_zone+1], veh.id)
+                global V_init[findfirst(x -> x == vehicle_zone, zones_index)] += 1
+                push!(zone_vacant_veh_dict[vehicle_zone], veh.id)
             end
         end
 
@@ -110,14 +111,14 @@ for ρ in ρ_list, Γ in Γ_list
                 continue
             end
             #Random.seed!(2020)
-            rebalancing_veh_list = sample(zone_vacant_veh_dict[i], rebalancing_veh_number, replace=false)
+            rebalancing_veh_list = sample(zone_vacant_veh_dict[zones_index[i]], rebalancing_veh_number, replace=false)
             for veh_id in rebalancing_veh_list
                 veh = vehicle_id_dict[veh_id]
                 global random_number = 0
                 Flag = false
                 #Random.seed!(2020)
                 while true
-                    global dest_node = sample(zone_to_road_node_dict[j-1], 1)[1]
+                    global dest_node = sample(zone_to_road_node_dict[zones_index[j]], 1)[1]
                     global rebalancing_dist = road_distance_matrix[veh.current_location+1, dest_node+1]
                     global rebalancing_time = (rebalancing_dist / average_speed) * 3600
                     if rebalancing_time <= time_interval_length
@@ -279,7 +280,7 @@ for ρ in ρ_list, Γ in Γ_list
         end
         break
     else
-        open(output_path*string(ρ)*"_"*string(Γ)*"_"*string(start_time[1])*"_"*string(end_time[1])*"_results_95_95.json","w") do f
+        open(output_path*string(ρ)*"_"*string(Γ)*"_"*string(start_time[1])*"_"*string(end_time[1])*"_results_75.json","w") do f
             JSON.print(f, output)
         end
     end
