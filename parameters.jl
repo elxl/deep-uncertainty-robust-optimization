@@ -62,10 +62,10 @@ end
 # Demand information used for solving optimizaiton problems
 # demand_mean = mean(data_points, dims=3)[:,:]
 # demand_std = std(data_points, dims=3)[:,:]
-demand_mean = npzread("historical/0627_poisson_mean.npy")
-demand_std = npzread("historical/0627_poisson_std.npy")
-demand_lb = npzread("historical/0627_poisson_95_lb.npy")
-demand_ub = npzread("historical/0627_poisson_95_ub.npy")
+demand_mean = npzread("historical/0627_normal_mean.npy")
+demand_std = npzread("historical/0627_normal_std.npy")
+demand_lb = npzread("historical/0627_normal_95_lb.npy")
+demand_ub = npzread("historical/0627_normal_95_ub.npy")
 true_demand = unstack(June_27_data[:, [:zone, :bin, :demand]], :bin, :demand)[:, 2:end]
 hist_avg_demand = unstack(June_27_data[:, [:zone, :bin, :historical_average]], :bin, :historical_average)[:, 2:end]
 
@@ -115,4 +115,11 @@ graph_lstm_lb = graph_lstm_lb[:,start_bin+2:end_bin+2]
 graph_lstm_ub = CSV.read("graph_lstm/0627_poisson_95_ub.csv", DataFrame)
 graph_lstm_ub = unstack(graph_lstm_ub[:, [:zone, :bin, :demand]], :bin, :demand)
 graph_lstm_ub = graph_lstm_ub[:,start_bin+2:end_bin+2]
+
+
+# Bounds from neural network for sum of demand
+graph_lstm_sum_lb = npzread("graph_lstm/0627_nb_sum_95_lb.npy")
+graph_lstm_sum_lb = graph_lstm_sum_lb[start_bin+1:end_bin+1]
+graph_lstm_sum_ub = npzread("graph_lstm/0627_nb_sum_95_ub.npy")
+graph_lstm_sum_ub = graph_lstm_sum_ub[start_bin+1:end_bin+1]
 ;

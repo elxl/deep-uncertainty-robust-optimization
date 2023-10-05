@@ -165,7 +165,7 @@ function matching(vehicles, demands)
     x_opt = getvalue(x)
     y_opt = getvalue(y)
 
-    # Get matched vehicle and passenger as well as the prik up distance
+    # Get matched vehicle and passenger as well as the pick up distance
     matching_list = []
     for i in keys(pickup_dist)
         if x_opt[i] == 1
@@ -313,6 +313,68 @@ function robust_model_function_interval(μ, lb, ub, Γ, V1, O1, P, Q, d, a, b, �
     @constraint(robust_model, [i=1:n, k=1:K], - r[i, k] <= - lb[i, k])
     @constraint(robust_model, [k=1:K], sum(r[i, k] - μ[i, k] for i in 1:n) <= Γ)
     @constraint(robust_model, [k=1:K], -sum(r[i, k] - μ[i, k] for i in 1:n) <= Γ)   
+
+
+    @constraint(robust_model, [i=1:n, k=1:K], r[i, k] >= 0)
+
+    # Set constraints related to state transitions (1,2,3)
+    @constraint(robust_model, [i=1:n, k=1:K], S[i,k] == V[i,k] + sum(x[j,i,k] for j in 1:n) - sum(x[i,j,k] for j in 1:n))
+    @constraint(robust_model, [i=1:n, k=1:K-1], V[i,k+1] == S[i,k] - sum(y[j,i,k] for j in 1:n) + sum(Q[j,i,k] * O[j,k] for j in 1:n))
+    @constraint(robust_model, [i=1:n, k=1:K-1], O[i,k+1] == sum(y[j,i,k] for j in 1:n) + sum(P[j,i,k] * O[j,k] for j in 1:n))
+
+    @constraint(robust_model, [i=1:n, k=1:K], sum(x[i,j,k] for j in 1:n) <= V[i,k])
+
+    # Set rebalancing constraint (4)
+    @constraint(robust_model, [i=1:n, j=1:n, k=1:K], a[i,j,k] * x[i,j,k] == 0)
+
+    # Set surplus vehicle / passenger constraint (6, 7, 8, 9)
+    @constraint(robust_model, [i=1:n, k=1:K], sum(y[j,i,k] for j in 1:n) <= S[i,k])
+    @constraint(robust_model, [i=1:n, k=1:K], sum(y[i,j,k] for j in 1:n) <= r[i, k])
+
+    # Set matching constraint (10)
+    @constraint(robust_model, [i=1:n, j=1:n, k=1:K], b[i,j,k] * y[i,j,k] == 0)
+
+    @constraint(robust_model, sum(x[i,j,k] * d[i,j,k] for i in 1:n, j in 1:n, k in 1:K)
+                            + 𝛽 * sum(y[i,j,k] * d[j,i,k] for i in 1:n, j in 1:n, k in 1:K)
+                            + γ * sum((r[i, k] - sum(y[i,j,k] for j in 1:n)) for i in 1:n, k in 1:K) <= 𝜔)
+
+    # Set objective
+    @objective(robust_model, Min, 𝜔)
+
+    solve(robust_model)
+
+    x_robust = getvalue(x)
+
+    return x_robust
+end
+
+
+function robust_model_function_interval_both(μ, lb, ub, lbs, ubs, V1, O1, P, Q, d, a, b, 𝛽, γ)
+
+    n = size(d,2)
+    K = size(μ,2)
+
+    robust_model = RobustModel(solver=GurobiSolver(OutputFlag = 0))
+
+    # Declare decision variables x, y, O, V, S, M, N, T, z
+    @variable(robust_model, x[i=1:n, j=1:n, k=1:K] >= 0)
+    @variable(robust_model, y[i=1:n, j=1:n, k=1:K] >= 0)
+    @variable(robust_model, O[i=1:n, k=1:K] >= 0)
+    @variable(robust_model, V[i=1:n, k=1:K] >= 0)
+    @variable(robust_model, S[i=1:n, k=1:K] >= 0)
+
+    @variable(robust_model, 𝜔)
+
+    # Set constraints to force initial position of occupied and vacant vehicles
+    @constraint(robust_model, V[1:n, 1] .== V1)
+    @constraint(robust_model, O[1:n, 1] .== O1)
+
+    # Uncertainty
+    @uncertain(robust_model, r[i=1:n, k=1:K])
+    @constraint(robust_model, [i=1:n, k=1:K], r[i, k] <= ub[i, k])
+    @constraint(robust_model, [i=1:n, k=1:K], - r[i, k] <= - lb[i, k])
+    @constraint(robust_model, [k=1:K], sum(r[i, k] for i in 1:n) <= 950)
+    @constraint(robust_model, [k=1:K], -sum(r[i, k] for i in 1:n) <= - 500)   
 
 
     @constraint(robust_model, [i=1:n, k=1:K], r[i, k] >= 0)

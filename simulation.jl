@@ -17,16 +17,16 @@ include("functions.jl")
 fleet_size = 2000
 
 #matching_engine_list = ["historical", "true_demand", "graph_lstm", "single_station_lstm", "all_station_lstm", "SAA", "KNN5", "KNN10", "ORT"]
-matching_engine = "graph_lstm_interval"
-output_path = "output/graph_lstm_poisson_0627_95/"
+matching_engine = "historical_interval"
+output_path = "output/historical_normal_0627/"
 ρ_list = [3]
-Γ_list = [0, 5, 10]
+Γ_list = [0]
 
 for ρ in ρ_list, Γ in Γ_list
     
-    if isfile(output_path*string(ρ)*"_"*string(Γ)*"_"*string(start_time[1])*"_"*string(end_time[1])*"_results.json")
-        continue
-    end
+    # if isfile(output_path*string(ρ)*"_"*string(Γ)*"_"*string(start_time[1])*"_"*string(end_time[1])*"_results.json")
+    #     continue
+    # end
 
     # Initialize demand and vehicle objects
     demand_list, demand_id_dict = initialize_demand(demand_data, zone_to_road_node_dict, zone_index_id_dict)
@@ -80,6 +80,13 @@ for ρ in ρ_list, Γ in Γ_list
             lb = graph_lstm_lb[:, time_index:end_time_index]
             ub = graph_lstm_ub[:, time_index:end_time_index]
             rebalancing_decision = robust_model_function_interval(μ, lb, ub, Γ, V_init, O_init, P_matrix, Q_matrix, d_sub, a_sub, b_sub, β, γ)
+        elseif matching_engine == "graph_lstm_interval_both"
+            μ = graph_lstm_mean[:, time_index:end_time_index] # predicted mean
+            lb = graph_lstm_lb[:, time_index:end_time_index]
+            ub = graph_lstm_ub[:, time_index:end_time_index]
+            lbs = graph_lstm_sum_lb[time_index:end_time_index]
+            ubs = graph_lstm_sum_ub[time_index:end_time_index]
+            rebalancing_decision = robust_model_function_interval_both(μ, lb, ub, lbs, ubs, V_init, O_init, P_matrix, Q_matrix, d_sub, a_sub, b_sub, β, γ)            
         elseif matching_engine == "historical"
             μ = demand_mean[:, time_index:end_time_index]
             σ = demand_std[:, time_index:end_time_index]
@@ -267,12 +274,12 @@ for ρ in ρ_list, Γ in Γ_list
     println(pax_leave_number / total_pax_number)
 
     if matching_engine=="true_demand"
-        open(output_path*matching_engine*"_"*string(start_time[1])*"_"*string(end_time[1])*"_results.json","w") do f
+        open(output_path*matching_engine*"_"*string(start_time[1])*"_"*string(end_time[1])*"_0627_results.json","w") do f
             JSON.print(f, output)
         end
         break
     else
-        open(output_path*string(ρ)*"_"*string(Γ)*"_"*string(start_time[1])*"_"*string(end_time[1])*"_results.json","w") do f
+        open(output_path*string(ρ)*"_"*string(Γ)*"_"*string(start_time[1])*"_"*string(end_time[1])*"_results_95_95.json","w") do f
             JSON.print(f, output)
         end
     end
