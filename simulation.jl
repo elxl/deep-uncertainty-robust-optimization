@@ -18,10 +18,10 @@ include("functions.jl")
 fleet_size = 1000
 
 #matching_engine_list = ["historical", "true_demand", "graph_lstm", "single_station_lstm", "all_station_lstm", "SAA", "KNN5", "KNN10", "ORT"]
-matching_engine = "graph_lstm_interval"
-output_path = "output/graph_lstm_poisson_0627_reduced/"
+matching_engine = "no_reb"
+output_path = "output/"
 ρ_list = [3]
-Γ_list = [0,1,2,3,4,5,6,7,8,9,10]
+Γ_list = [5]
 
 for ρ in ρ_list, Γ in Γ_list
     
@@ -100,6 +100,8 @@ for ρ in ρ_list, Γ in Γ_list
         elseif matching_engine == "true_demand"
             r = true_demand[:, time_index:end_time_index]
             rebalancing_decision = optimization(r, V_init, O_init, P_matrix, Q_matrix, n, K_sub, a_sub, b_sub, d_sub, β, γ)
+        elseif matching_engine == "no_reb"
+            rebalancing_decision = zeros((n,n,1))
         end
 
         rebalancing_decision = (Int.(floor.(rebalancing_decision[:,:,1])))
@@ -274,7 +276,7 @@ for ρ in ρ_list, Γ in Γ_list
 
     println(pax_leave_number / total_pax_number)
 
-    if matching_engine=="true_demand"
+    if matching_engine=="true_demand" || matching_engine=="no_reb"
         open(output_path*matching_engine*"_"*string(start_time[1])*"_"*string(end_time[1])*"_0627_results.json","w") do f
             JSON.print(f, output)
         end
